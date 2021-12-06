@@ -1,8 +1,12 @@
+from datetime import datetime
+
 from django.db import models
-from ks_shared.django.model_utils import BaseModelSoftDeletable, upload_to_without_rename
+from django.utils.timezone import make_aware
+from django.utils.translation import gettext_lazy as _
 from model_utils import Choices, FieldTracker
 from model_utils.fields import StatusField
-from django.utils.translation import gettext_lazy as _
+
+from ks_shared.django.model_utils import BaseModelSoftDeletable, upload_to_without_rename, load_image_from_url
 
 
 class AbstractWXMPUser(BaseModelSoftDeletable):
@@ -36,6 +40,11 @@ class AbstractWXMPUser(BaseModelSoftDeletable):
 	# the tracker
 	tracker = FieldTracker()
 
+	class Meta:
+		verbose_name = _('user')
+		verbose_name_plural = _('users')
+		abstract = True
+
 	@property
 	def avatar_link(self):
 		return str(self.avatar.url) if self.avatar else ''
@@ -48,7 +57,26 @@ class AbstractWXMPUser(BaseModelSoftDeletable):
 			return cls.GENDER_CHOICES.female
 		return cls.GENDER_CHOICES.unknown
 
-	class Meta:
-		verbose_name = _('user')
-		verbose_name_plural = _('users')
-		abstract = True
+	@classmethod
+	def save_from_wxa(cls, wxa_data: dict):
+		if 'openid' not in wxa_data or not wxa_data['openid']:
+			raise ValueError('missing openid')
+
+		user_db, _ = cls.objects.get_or_create(openid=wxa_data['openid'])
+		user_db.unionid = wxa_data['unionid']
+		user_db.name = wxa_data['nickName']
+		user_db.gender = cls.gender_format(wxa_data['gender'])
+		user_db.country = wxa_data['country']
+		user_db.province = wxa_data['province']
+		user_db.city = wxa_data['city']
+		user_db.language = wxa_data['language']
+		if wxa_data['avatarUrl'] != user_db.avatar_url:
+			user_db.avatar_url = wxa_data['avatarUrl']
+			user_db.avatar = load_image_from_url(user_db.avatar_url, f'{user_db.openid}.jpg')
+		user_db.wxa_json = wxa_data
+		user_db.last_update_wxa_at = make_aware(datetime.now())
+		user_db.save()
+		return user_db
+
+	def __str__(self):
+		return '{} - {}'.format(self.name, self.openid)
