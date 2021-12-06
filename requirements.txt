@@ -1,0 +1,5 @@
+setuptools~=57.0.0
+Django~=3.2.9
+django-model-utils~=4.2
+shortuuid~=1.0
+requests~=2.26.0
