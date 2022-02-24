@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 from django.db import models
@@ -9,6 +10,8 @@ from shortuuid.django_fields import ShortUUIDField
 
 from ks_shared.django.model_utils import BaseModelSoftDeletable, upload_to_without_rename, load_image_from_url
 
+logger = logging.getLogger(__name__)
+
 
 class AbstractWXMPUser(BaseModelSoftDeletable):
     GENDER_CHOICES = Choices(
@@ -17,27 +20,29 @@ class AbstractWXMPUser(BaseModelSoftDeletable):
         ('unknown', 'Unknown')
     )
 
-    name = models.CharField(blank=True, max_length=255, default='', db_index=True)
+    # key
     openid = models.CharField(blank=True, max_length=30, db_index=True)
     unionid = models.CharField(blank=True, max_length=30, null=True, default=None, db_index=True)
+    # attributes
+    name = models.CharField(blank=True, max_length=255, default='', db_index=True)
     cellphone = models.CharField(blank=True, max_length=20, null=True, default=None)
     email = models.CharField(blank=True, max_length=255, null=True, default=None)
     birthday = models.DateField(blank=True, null=True, default=None)
     gender = StatusField(choices_name='GENDER_CHOICES', default='unknown')
-    avatar = models.ImageField(blank=True, upload_to=upload_to_without_rename, null=True, default=None)
     city = models.CharField(blank=True, null=True, max_length=100, default=None)
     province = models.CharField(blank=True, null=True, max_length=100, default=None)
     country = models.CharField(blank=True, null=True, max_length=100, default=None)
     language = models.CharField(blank=True, null=True, max_length=100, default=None)
     avatar_url = models.CharField(blank=True, null=True, max_length=255, default=None, help_text='wxa avatar url')
-
-    last_update_wxa_at = models.DateTimeField(blank=True, null=True, default=None)
-    wxa_json = models.JSONField(blank=True, default=dict)
-
+    avatar = models.ImageField(blank=True, upload_to=upload_to_without_rename, null=True, default=None)
+    # time sensitive
+    last_login_at = models.DateTimeField(blank=True, null=True, default=None)
+    last_info_updated_at = models.DateTimeField(blank=True, null=True, default=None)
+    # raw
+    raw_data = models.JSONField(blank=True, default=dict)
     # utm tracking
     utm_campaign = models.CharField(blank=True, null=True, max_length=255, default=None)
     utm_source = models.CharField(blank=True, null=True, max_length=255, default=None)
-
     # seed
     seed = ShortUUIDField(
         length=7,
@@ -57,6 +62,10 @@ class AbstractWXMPUser(BaseModelSoftDeletable):
     def avatar_link(self):
         return str(self.avatar.url) if self.avatar else ''
 
+    @property
+    def is_info_fulfill(self):
+        return bool(self.last_info_updated_at)
+
     @classmethod
     def gender_format(cls, value):
         if value == '男' or value == 'male' or value == 1:
@@ -66,53 +75,69 @@ class AbstractWXMPUser(BaseModelSoftDeletable):
         return cls.GENDER_CHOICES.unknown
 
     @classmethod
-    def save_from_wxa(cls, wxa_data: dict):
-        if 'openid' not in wxa_data or not wxa_data['openid']:
+    def login(cls, data: dict):
+        if 'openid' not in data or not data['openid']:
             raise ValueError('missing openid')
 
-        user_db, _ = cls.objects.get_or_create(openid=wxa_data['openid'])
-
-        if wxa_data.get('unionid', ''):
-            user_db.unionid = wxa_data.get('unionid', '')
-        if wxa_data.get('nickName', ''):
-            user_db.name = wxa_data.get('nickName', '')
-        if wxa_data.get('gender', ''):
-            user_db.gender = cls.gender_format(wxa_data.get('gender', ''))
-        if wxa_data.get('country', ''):
-            user_db.country = wxa_data.get('country', '')
-        if wxa_data.get('province', ''):
-            user_db.province = wxa_data.get('province', '')
-        if wxa_data.get('city', ''):
-            user_db.city = wxa_data.get('city', '')
-        if wxa_data.get('language', ''):
-            user_db.language = wxa_data.get('language', '')
-
-        if 'avatarUrl' in wxa_data and wxa_data['avatarUrl'] and wxa_data['avatarUrl'] != user_db.avatar_url:
-            user_db.avatar_url = wxa_data['avatarUrl']
-            user_db.avatar = load_image_from_url(user_db.avatar_url, f'{user_db.openid}.jpg')
-
-        if wxa_data.get('openid', '') and wxa_data.get('nickName', ''):
-            user_db.wxa_json = wxa_data
+        user, _ = cls.objects.get_or_create(openid=data['openid'])
+        if data.get('unionid', ''):
+            user.unionid = data.get('unionid', '')
 
         # utm
-        if wxa_data.get('utm_source', '') and not user_db.utm_source:
-            user_db.utm_source = wxa_data.get('utm_source', '')
-        if wxa_data.get('utm_campaign', '') and not user_db.utm_campaign:
-            user_db.utm_source = wxa_data.get('utm_campaign', '')
+        if data.get('utm_source', '') and not data.utm_source:
+            user.utm_source = data.get('utm_source', '')
+        if data.get('utm_campaign', '') and not data.utm_campaign:
+            user.utm_source = data.get('utm_campaign', '')
 
-        user_db.last_update_wxa_at = make_aware(datetime.now())
-        user_db.save()
+        user.last_login_at = make_aware(datetime.now())
+        user.save()
+        return user
 
-        return user_db
+    @classmethod
+    def update_info(cls, data: dict):
+        if 'openid' not in data or not data['openid']:
+            raise ValueError('missing openid')
+
+        try:
+            user = cls.objects.get(openid=data['openid'])
+            if data.get('nickName', ''):
+                user.name = data.get('nickName', '')
+            if data.get('gender', ''):
+                user.gender = cls.gender_format(data.get('gender', ''))
+            if data.get('country', ''):
+                user.country = data.get('country', '')
+            if data.get('province', ''):
+                user.province = data.get('province', '')
+            if data.get('city', ''):
+                user.city = data.get('city', '')
+            if data.get('language', ''):
+                user.language = data.get('language', '')
+
+            if 'avatarUrl' in data and data['avatarUrl'] and data['avatarUrl'] != user.avatar_url:
+                user.avatar_url = data['avatarUrl']
+                user.avatar = load_image_from_url(user.avatar_url, f'{user.openid}.jpg')
+
+            user.raw_data = data
+            user.last_info_updated_at = make_aware(datetime.now())
+            user.save()
+            return user
+
+        except cls.DoesNotExist:
+            logger.error(f'user not exist, data: {data}')
+        except cls.MultipleObjectsReturned:
+            logger.error(f'multiple user return, data: {data}')
 
     @classmethod
     def update_phone(cls, data: dict):
         if 'openid' not in data or not data['openid']:
             raise ValueError('missing openid')
 
-        user_db, _ = cls.objects.get_or_create(openid=data['openid'])
-        user_db.cellphone = data['phone_number']
-        user_db.save()
+        try:
+            user = cls.objects.get(openid=data['openid'])
+            user.cellphone = data['phone_number']
+            user.save()
+        except Exception as err:
+            logger.error(str(err))
 
     def __str__(self):
         return '{} - {}'.format(self.name, self.openid)
