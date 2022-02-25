@@ -22,18 +22,18 @@ class AbstractWXMPUser(BaseModelSoftDeletable):
 
     # key
     openid = models.CharField(blank=True, max_length=30, db_index=True)
-    unionid = models.CharField(blank=True, max_length=30, null=True, default=None, db_index=True)
+    unionid = models.CharField(blank=True, max_length=30, default='', db_index=True)
     # attributes
     name = models.CharField(blank=True, max_length=255, default='', db_index=True)
-    cellphone = models.CharField(blank=True, max_length=20, null=True, default=None)
-    email = models.CharField(blank=True, max_length=255, null=True, default=None)
+    cellphone = models.CharField(blank=True, max_length=20, default='')
+    email = models.CharField(blank=True, max_length=255, default='')
     birthday = models.DateField(blank=True, null=True, default=None)
     gender = StatusField(choices_name='GENDER_CHOICES', default='unknown')
-    city = models.CharField(blank=True, null=True, max_length=100, default=None)
-    province = models.CharField(blank=True, null=True, max_length=100, default=None)
-    country = models.CharField(blank=True, null=True, max_length=100, default=None)
-    language = models.CharField(blank=True, null=True, max_length=100, default=None)
-    avatar_url = models.CharField(blank=True, null=True, max_length=255, default=None, help_text='wxa avatar url')
+    city = models.CharField(blank=True, max_length=100, default='')
+    province = models.CharField(blank=True, max_length=100, default='')
+    country = models.CharField(blank=True, max_length=100, default='')
+    language = models.CharField(blank=True, max_length=100, default='')
+    avatar_url = models.CharField(blank=True, max_length=255, default='', help_text='avatar url')
     avatar = models.ImageField(blank=True, upload_to=upload_to_without_rename, null=True, default=None)
     # time sensitive
     last_login_at = models.DateTimeField(blank=True, null=True, default=None)
@@ -41,8 +41,8 @@ class AbstractWXMPUser(BaseModelSoftDeletable):
     # raw
     raw_data = models.JSONField(blank=True, default=dict)
     # utm tracking
-    utm_campaign = models.CharField(blank=True, null=True, max_length=255, default=None)
-    utm_source = models.CharField(blank=True, null=True, max_length=255, default=None)
+    utm_campaign = models.CharField(blank=True,  max_length=255, default='')
+    utm_source = models.CharField(blank=True,  max_length=255, default='')
     # seed
     seed = ShortUUIDField(
         length=7,
