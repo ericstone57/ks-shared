@@ -95,21 +95,21 @@ class AbstractWXMPUser(BaseModelSoftDeletable):
 
     @classmethod
     def update_info(cls, data: dict):
-        if 'openid' not in data or not data['openid']:
-            raise ValueError('missing openid')
+        if 'user_id' not in data or not data['user_id']:
+            raise ValueError('missing user_id')
 
         try:
-            user = cls.objects.get(openid=data['openid'])
+            user = cls.objects.get(id=data['user_id'])
             if data.get('nickName', ''):
                 user.name = data.get('nickName', '')
-            if data.get('gender', ''):
-                user.gender = cls.gender_format(data.get('gender', ''))
-            if data.get('country', ''):
-                user.country = data.get('country', '')
-            if data.get('province', ''):
-                user.province = data.get('province', '')
-            if data.get('city', ''):
-                user.city = data.get('city', '')
+            # if data.get('gender', ''):
+            #     user.gender = cls.gender_format(data.get('gender', ''))
+            # if data.get('country', ''):
+            #     user.country = data.get('country', '')
+            # if data.get('province', ''):
+            #     user.province = data.get('province', '')
+            # if data.get('city', ''):
+            #     user.city = data.get('city', '')
             if data.get('language', ''):
                 user.language = data.get('language', '')
 
@@ -117,15 +117,27 @@ class AbstractWXMPUser(BaseModelSoftDeletable):
                 user.avatar_url = data['avatarUrl']
                 user.avatar = load_image_from_url(user.avatar_url, f'{user.openid}.jpg')
 
-            user.raw_data = data
+            # user.raw_data = data
             user.last_info_updated_at = make_aware(datetime.now())
-            user.save()
+            user.save(update_fields=['name', 'language', 'avatar_url', 'avatar', 'last_info_updated_at'])
             return user
 
         except cls.DoesNotExist:
             logger.error(f'user not exist, data: {data}')
         except cls.MultipleObjectsReturned:
             logger.error(f'multiple user return, data: {data}')
+
+    @classmethod
+    def update_phone_v2(cls, data: dict):
+        if 'user_id' not in data or not data['user_id']:
+            raise ValueError('missing user_id')
+
+        try:
+            user = cls.objects.get(id=data['user_id'])
+            user.cellphone = data['phone_number']
+            user.save(update_fields=['phone_number'])
+        except Exception as err:
+            logger.error(str(err))
 
     @classmethod
     def update_phone(cls, data: dict):
