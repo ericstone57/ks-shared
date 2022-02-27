@@ -79,7 +79,7 @@ class AbstractWXMPUser(BaseModelSoftDeletable):
         if 'openid' not in data or not data['openid']:
             raise ValueError('missing openid')
 
-        user, _ = cls.objects.get_or_create(openid=data['openid'])
+        user, _ = cls.objects.get_or_create(id=data['uid'], openid=data['openid'])
         if data.get('unionid', ''):
             user.unionid = data.get('unionid', '')
 
@@ -95,11 +95,11 @@ class AbstractWXMPUser(BaseModelSoftDeletable):
 
     @classmethod
     def update_info(cls, data: dict):
-        if 'user_id' not in data or not data['user_id']:
-            raise ValueError('missing user_id')
+        if 'uid' not in data or not data['uid']:
+            raise ValueError('missing uid')
 
         try:
-            user = cls.objects.get(id=data['user_id'])
+            user = cls.objects.get(id=data['uid'])
             if data.get('nickName', ''):
                 user.name = data.get('nickName', '')
             # if data.get('gender', ''):
@@ -129,11 +129,11 @@ class AbstractWXMPUser(BaseModelSoftDeletable):
 
     @classmethod
     def update_phone_v2(cls, data: dict):
-        if 'user_id' not in data or not data['user_id']:
-            raise ValueError('missing user_id')
+        if 'uid' not in data or not data['uid']:
+            raise ValueError('missing uid')
 
         try:
-            user = cls.objects.get(id=data['user_id'])
+            user = cls.objects.get(id=data['uid'])
             user.cellphone = data['phone_number']
             user.save(update_fields=['phone_number'])
         except Exception as err:
