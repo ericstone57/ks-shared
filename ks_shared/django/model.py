@@ -138,8 +138,8 @@ class AbstractWXMPUser(BaseModelSoftDeletable):
 
         try:
             user = cls.objects.get(id=data['uid'])
-            user.cellphone = data['phone_number']
-            user.save(update_fields=['phone_number'])
+            user.cellphone = data['phoneNumber']
+            user.save(update_fields=['cellphone'])
         except Exception as err:
             logger.error(str(err))
 
