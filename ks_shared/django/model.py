@@ -66,6 +66,10 @@ class AbstractWXMPUser(BaseModelSoftDeletable):
     def is_info_fulfill(self):
         return bool(self.last_info_updated_at)
 
+    @property
+    def is_phone_fulfill(self):
+        return bool(self.cellphone)
+
     @classmethod
     def gender_format(cls, value):
         if value == '男' or value == 'male' or value == 1:
